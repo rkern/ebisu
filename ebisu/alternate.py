@@ -26,8 +26,8 @@ def predictRecallMode(prior, tnow):
 
     eps = 1e-3
     others = [
-        eps, mode - eps if mode > eps else mode / 2, mode + eps
-        if mode < 1 - eps else (1 + mode) / 2, 1 - eps
+        eps, mode - eps if mode > eps else mode / 2,
+        mode + eps if mode < 1 - eps else (1 + mode) / 2, 1 - eps
     ]
     otherPr = map(pr, others)
     if max(otherPr) <= modePr:
@@ -48,18 +48,15 @@ def predictRecallMedian(prior, tnow, percentile=0.5):
   specifies the percentile rather than 50% (median).
   """
   # [1] `Integrate[p**((a-t)/t) * (1-p**(1/t))**(b-1) / t / Beta[a,b], p]`
+  # and see "Alternate form assuming a, b, p, and t are positive".
   from scipy.optimize import brentq
-  from scipy.special import beta as fbeta
-  from scipy.special import hyp2f1
+  from scipy.special import betainc
   alpha, beta, t = prior
   dt = tnow / t
 
   # See [1]. If the mode doesn't exist (or can't be found), find the median (or
   # `percentile`) using a root-finder and the cumulative distribution function.
-  cdfPercentile = lambda p: (p**(alpha/dt) *
-                             hyp2f1(alpha, 1 - beta, 1 + alpha, p**(1/dt)) /
-                             alpha /
-                             fbeta(alpha,beta)) - percentile
+  cdfPercentile = lambda p: betainc(alpha, beta, p**(1 / dt)) - percentile
   return brentq(cdfPercentile, 0, 1)
 
 
@@ -97,10 +94,12 @@ def updateRecallQuad(prior, result, tnow, analyticMarginal=True):
   dt = tnow / t
 
   if result == 1:
-    marginalInt = lambda p: p**((alpha - dt) / dt) * (1 - p**(1 / dt))**(beta - 1) * p
+    marginalInt = lambda p: p**((alpha - dt) / dt) * (1 - p**(1 / dt))**(beta -
+                                                                         1) * p
   else:
     # difference from above: -------------------------------------------^vvvv
-    marginalInt = lambda p: p**((alpha - dt) / dt) * (1 - p**(1 / dt))**(beta - 1) * (1 - p)
+    marginalInt = lambda p: p**((alpha - dt) / dt) * (1 - p**(1 / dt))**(
+        beta - 1) * (1 - p)
 
   if analyticMarginal:
     from scipy.special import beta as fbeta
@@ -119,15 +118,17 @@ def updateRecallQuad(prior, result, tnow, analyticMarginal=True):
   muInt = lambda p: marginalInt(p) * p
   muEst = quad(muInt, 0, 1)
   if muEst[0] < muEst[1] * 10.:
-    raise OverflowError('Mean integral error too high: value={}, error={}'.
-                        format(muEst[0], muEst[1]))
+    raise OverflowError(
+        'Mean integral error too high: value={}, error={}'.format(
+            muEst[0], muEst[1]))
   mu = muEst[0] / marginal
 
   varInt = lambda p: marginalInt(p) * (p - mu)**2
   varEst = quad(varInt, 0, 1)
   if varEst[0] < varEst[1] * 10.:
-    raise OverflowError('Variance integral error too high: value={}, error={}'.
-                        format(varEst[0], varEst[1]))
+    raise OverflowError(
+        'Variance integral error too high: value={}, error={}'.format(
+            varEst[0], varEst[1]))
   var = varEst[0] / marginal
 
   newAlpha, newBeta = _meanVarToBeta(mu, var)

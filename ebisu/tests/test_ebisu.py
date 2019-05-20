@@ -21,18 +21,29 @@ def klDivBeta(a, b, a2, b2):
   left = np.array([a, b])
   right = np.array([a2, b2])
   return gammaln(sum(left)) - gammaln(sum(right)) - sum(gammaln(left)) + sum(
-      gammaln(right)) + np.dot(left - right, psi(left) - psi(sum(left)))
+      gammaln(right)) + np.dot(left - right,
+                               psi(left) - psi(sum(left)))
 
 
 def kl(v, w):
-  return (klDivBeta(v[0], v[1], w[0], w[1]) + klDivBeta(w[0], w[1], v[0], v[1])
-         ) / 2.
+  return (klDivBeta(v[0], v[1], w[0], w[1]) +
+          klDivBeta(w[0], w[1], v[0], v[1])) / 2.
 
 
 testpoints = []
 
 
 class TestEbisu(unittest.TestCase):
+
+  def test_predictRecallMedian(self):
+    model0 = (4.0, 4.0, 1.0)
+    model1 = updateRecall(model0, False, 1.0)
+    model2 = updateRecall(model1, True, 0.01)
+    ts = np.linspace(0.01, 4.0, 81.0)
+    qs = (0.05, 0.25, 0.5, 0.75, 0.95)
+    for t in ts:
+      for q in qs:
+        self.assertGreater(predictRecallMedian(model2, t, q), 0)
 
   def test_kl(self):
     # See https://en.wikipedia.org/w/index.php?title=Beta_distribution&oldid=774237683#Quantities_of_information_.28entropy.29 for these numbers
@@ -87,8 +98,8 @@ class TestEbisu(unittest.TestCase):
 
 
 if __name__ == '__main__':
-  unittest.TextTestRunner().run(
-      unittest.TestLoader().loadTestsFromModule(TestEbisu()))
+  unittest.TextTestRunner().run(unittest.TestLoader().loadTestsFromModule(
+      TestEbisu()))
 
   with open("test.json", "w") as out:
     import json
